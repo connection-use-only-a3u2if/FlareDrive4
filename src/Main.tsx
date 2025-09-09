@@ -9,6 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Home as HomeIcon, NoteAdd as NoteAddIcon } from "@mui/icons-material";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
 
 import FileGrid, { encodeKey, FileItem, isDirectory } from "./FileGrid";
 import MultiSelectToolbar from "./MultiSelectToolbar";
@@ -16,6 +17,7 @@ import UploadDrawer, { UploadFab } from "./UploadDrawer";
 import TextPadDrawer from "./TextPadDrawer";
 import { copyPaste, fetchPath } from "./app/transfer";
 import { useTransferQueue, useUploadEnqueue } from "./app/transferQueue";
+import MiniProgressDialog from "./MiniProgressDialog";
 
 // Centered helper
 function Centered({ children }: { children: React.ReactNode }) {
@@ -26,6 +28,8 @@ function Centered({ children }: { children: React.ReactNode }) {
         justifyContent: "center",
         alignItems: "center",
         height: "100%",
+        bgcolor: '#222',
+        color: '#fff'
       }}
     >
       {children}
@@ -44,13 +48,13 @@ function PathBreadcrumb({
   const parts = path.replace(/\/$/, "").split("/");
 
   return (
-    <Breadcrumbs separator="›" sx={{ padding: 1 }}>
-      <Button onClick={() => onCwdChange("")} sx={{ minWidth: 0, padding: 0 }}>
-        <HomeIcon />
+    <Breadcrumbs separator="›" sx={{ padding: 1, bgcolor: '#222', color: '#fff' }}>
+      <Button onClick={() => onCwdChange("")} sx={{ minWidth: 0, padding: 0, color: '#fff' }}>
+        <HomeIcon sx={{ color: '#00b8ff' }} />
       </Button>
       {parts.map((part, index) =>
         index === parts.length - 1 ? (
-          <Typography key={index} color="text.primary">
+          <Typography key={index} color="#fff">
             {part}
           </Typography>
         ) : (
@@ -60,6 +64,7 @@ function PathBreadcrumb({
             onClick={() => {
               onCwdChange(parts.slice(0, index + 1).join("/") + "/");
             }}
+            sx={{ color: '#fff' }}
           >
             {part}
           </Link>
@@ -107,6 +112,41 @@ function DropZone({
     </Box>
   );
 }
+
+// Theme configuration
+const theme = createTheme({
+  palette: {
+    mode: "dark",
+    primary: { main: "#00b8ff" },
+    secondary: { main: "#0066ffff" },
+    background: {
+      default: "#222",
+      paper: "#222",
+      // Header background removed, use MuiAppBar styleOverrides below
+    },
+    text: {
+      primary: "#fff",
+      secondary: "#fff",
+    },
+  },
+  components: {
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "#000",
+          color: "#fff",
+        },
+      },
+    },
+    MuiTypography: {
+      styleOverrides: {
+        root: {
+          color: "#fff",
+        },
+      },
+    },
+  },
+});
 
 // Main Component
 function Main({
@@ -177,12 +217,12 @@ function Main({
   }, []);
 
   return (
-    <>
+    <ThemeProvider theme={theme}>
       {cwd && <PathBreadcrumb path={cwd} onCwdChange={setCwd} />}
 
       {loading ? (
         <Centered>
-          <CircularProgress />
+            <CircularProgress/>
         </Centered>
       ) : (
         <DropZone
@@ -197,7 +237,7 @@ function Main({
             onCwdChange={(newCwd: string) => setCwd(newCwd)}
             multiSelected={multiSelected}
             onMultiSelect={handleMultiSelect}
-            emptyMessage={<Centered>No files or folders</Centered>}
+            emptyMessage={<Centered><span style={{color: '#fff'}}>No files or folders</span></Centered>}
           />
         </DropZone>
       )}
@@ -241,7 +281,7 @@ function Main({
         onDownload={() => {
           if (multiSelected?.length !== 1) return;
           const a = document.createElement("a");
-          a.href = `/webdav/${encodeKey(multiSelected[0])}`;
+          a.href = `/f/${encodeKey(multiSelected[0])}`;
           a.download = multiSelected[0].split("/").pop()!;
           a.click();
         }}
@@ -260,19 +300,22 @@ function Main({
           const confirmMessage = "Delete the following file(s) permanently?";
           if (!window.confirm(`${confirmMessage}\n${filenames}`)) return;
           for (const key of multiSelected)
-            await fetch(`/webdav/${encodeKey(key)}`, { method: "DELETE" });
+            await fetch(`/f/${encodeKey(key)}`, { method: "DELETE" });
           fetchFiles();
         }}
         onShare={() => {
           if (multiSelected?.length !== 1) return;
           const url = new URL(
-            `/webdav/${encodeKey(multiSelected[0])}`,
+            `/f/${encodeKey(multiSelected[0])}`,
             window.location.href
           );
           navigator.share({ url: url.toString() });
         }}
       />
-    </>
+      {/* Show mini progress dialog at bottom left when uploading/downloading */}
+      <MiniProgressDialog />
+      {/* Main ProgressDialog can be opened via menus only */}
+    </ThemeProvider>
   );
 }
 
